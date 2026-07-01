@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>オリンピック賞金計算アプリ v5</title>
+  <style>
+    :root{--bg:#f6f7f9;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#d1d5db;--accent:#2563eb;--accent-dark:#1d4ed8;--danger:#b91c1c;--positive:#065f46;--negative:#991b1b;--soft:#eef2ff}
+    *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6} main{width:min(1040px,calc(100% - 28px));margin:28px auto 48px} h1{font-size:1.6rem;margin:0 0 8px} h2{font-size:1.15rem;margin:0 0 14px}.lead{color:var(--muted);margin:0 0 20px}.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin:16px 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end} label{display:block;font-weight:650;margin-bottom:6px} input[type="number"],input[type="text"],input[type="file"],select{width:100%;font-size:1rem;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff} input[type="file"]{padding:8px 10px} button{appearance:none;border:none;border-radius:10px;background:var(--accent);color:white;font-weight:700;font-size:1rem;padding:11px 16px;cursor:pointer} button:hover{background:var(--accent-dark)} button.secondary{background:#4b5563} button.secondary:hover{background:#374151}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.error{color:var(--danger);font-weight:650;margin-top:10px}.ok{color:var(--positive);font-weight:650;margin-top:10px}.hidden{display:none} table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:12px;margin-top:8px} th,td{border:1px solid var(--border);padding:9px 10px;text-align:right;white-space:nowrap} th:first-child,td:first-child{text-align:left} th{background:var(--soft)}.positive{color:var(--positive);font-weight:700}.negative{color:var(--negative);font-weight:700}.muted{color:var(--muted)}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}.pill{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fafafa}.pill b{display:block;font-size:.9rem;color:var(--muted)}.pill span{font-size:1.12rem;font-weight:800}.note{font-size:.92rem;color:var(--muted);margin-top:10px}.mini{font-size:.9rem;color:var(--muted);margin:.25rem 0 0}.section-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}.badge{font-size:.85rem;background:#e5e7eb;color:#374151;border-radius:999px;padding:2px 9px}@media(max-width:640px){main{width:min(100% - 18px,1040px);margin-top:16px}.card{padding:14px}table{font-size:.9rem}th,td{padding:7px 6px}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>ゴルフ オリンピック賞金計算アプリ v5</h1>
+  <p class="lead">賞金下限を円で入力できます。ゴルフスコア入力アプリのJSONを読み込むと、ラウンド情報・人数・名前・各ホールのオリンピック点を合計し、自動計算します。v5では実運用に不要な詳細計算値を非表示にしました。</p>
+
+  <section class="card" id="importCard">
+    <div class="section-title"><h2>任意：スコアファイル読込</h2><span class="badge">スコアJSON / CSV</span></div>
+    <div class="grid">
+      <div>
+        <label for="scoreFile">スコア入力アプリの出力ファイル</label>
+        <input id="scoreFile" type="file" accept=".csv,.json,.txt,application/json,text/csv" />
+      </div>
+      <div>
+        <label for="olympicColumn">オリンピック得点の列名候補</label>
+        <input id="olympicColumn" type="text" value="オリンピック,Olympic,olympic,五輪" />
+        <p class="mini">CSVの列名に上記のどれかを含む列を得点として読みます。</p>
+      </div>
+    </div>
+    <div class="actions"><button id="loadFile" class="secondary">ファイルを読み込む</button></div>
+    <div class="ok" id="importOk"></div><div class="error" id="importError"></div>
+  </section>
+
+  <section class="card" id="step1">
+    <h2>Step 1：基本条件</h2>
+    <div class="grid">
+      <div><label for="playerCount">プレイヤー人数 n</label><input id="playerCount" type="number" inputmode="numeric" min="2" step="1" value="3" /></div>
+      <div><label for="yenPerPoint">1点あたり賞金</label><input id="yenPerPoint" type="number" inputmode="decimal" step="any" value="50" /></div>
+      <div><label for="minPrize">下限賞金額</label><input id="minPrize" type="number" inputmode="decimal" step="any" value="-1000" /></div>
+      <input id="minClamp" type="hidden" value="-20" />
+      <div><button id="makeInputs">得点入力へ</button></div>
+    </div>
+    <p class="note">下限賞金額は、負け側の最大支払額です。例：-1000円、50円/点なら、内部的には -20点でクランプします。</p>
+    <div class="error" id="step1Error"></div>
+  </section>
+
+  <section class="card hidden" id="step2">
+    <h2>Step 2：プレイヤー名・得点入力</h2>
+    <div id="scoreInputs" class="grid"></div>
+    <div class="actions"><button id="calculate">計算する</button><button id="sample" class="secondary">例を入力</button><button id="reset" class="secondary">リセット</button></div>
+    <div class="error" id="step2Error"></div>
+  </section>
+
+  <section class="card hidden" id="result">
+    <h2>Step 3〜7：計算結果</h2>
+    <div id="roundInfo" class="card" style="box-shadow:none;margin:0 0 12px;background:#fafafa"></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>プレイヤー</th><th>オリンピック得点</th><th>賞金</th></tr></thead><tbody id="resultBody"></tbody></table></div>
+    <h2 style="margin-top:22px">精算表</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>支払う人</th><th>受け取る人</th><th>金額</th></tr></thead><tbody id="settlementBody"></tbody></table></div>
+    <p class="note">マイナスの人からプラスの人へ、賞金合計が0になるように精算します。端数がある場合は小数で表示します。</p>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id); let importedPlayers=null; let importedRoundInfo=null;
+function formatNumber(value,digits=2){if(!Number.isFinite(value))return"-";const r=Math.abs(value)<1e-10?0:value;return r.toLocaleString("ja-JP",{maximumFractionDigits:digits});}
+function clearErrors(){["step1Error","step2Error","importError","importOk"].forEach(id=>$(id).textContent="");}
+function updateClamp(){const yen=Number($("yenPerPoint").value), minPrize=Number($("minPrize").value);$("minClamp").value=(Number.isFinite(yen)&&yen!==0&&Number.isFinite(minPrize))?String(minPrize/yen):"";}
+function makeScoreInputs(){clearErrors();updateClamp();const n=Number($("playerCount").value),m=Number($("minClamp").value),yen=Number($("yenPerPoint").value);if(!Number.isInteger(n)||n<2){$("step1Error").textContent="プレイヤー人数 n は2以上の整数にしてください。";return}if(!Number.isFinite(yen)||yen<=0){$("step1Error").textContent="1点あたり賞金は正の数にしてください。";return}if(!Number.isFinite(m)){$("step1Error").textContent="下限賞金額を入力してください。";return}const box=$("scoreInputs");box.innerHTML="";for(let i=1;i<=n;i++){const data=importedPlayers&&importedPlayers[i-1]?importedPlayers[i-1]:{};const w=document.createElement("div");w.innerHTML=`<label for="name${i}">プレイヤー${i} 名前</label><input id="name${i}" type="text" value="${escapeHtml(data.name||`プレイヤー${i}`)}" /><label for="score${i}" style="margin-top:8px">オリンピック得点 P${i}</label><input id="score${i}" type="number" inputmode="decimal" step="any" value="${Number.isFinite(data.score)?data.score:""}" />`;box.appendChild(w)}$("step2").classList.remove("hidden");$("result").classList.add("hidden")}
+function calculate(){clearErrors();updateClamp();const n=Number($("playerCount").value),m=Number($("minClamp").value),yen=Number($("yenPerPoint").value),scores=[],names=[];if(!Number.isFinite(yen)||yen<=0){$("step2Error").textContent="1点あたり賞金は正の数にしてください。";return}for(let i=1;i<=n;i++){const v=Number($(`score${i}`)?.value);if(!Number.isFinite(v)){$("step2Error").textContent=`プレイヤー${i}の得点を入力してください。`;return}scores.push(v);names.push(($(`name${i}`)?.value||`プレイヤー${i}`).trim()||`プレイヤー${i}`)}const rawD=scores.map((pi,i)=>scores.reduce((sum,pj,j)=>i===j?sum:sum+(pi-pj),0));const clampedD=rawD.map(d=>d<=m?m:d);const S=clampedD.filter(d=>d<0).reduce((a,b)=>a+b,0);const R=clampedD.filter(d=>d>0).reduce((a,b)=>a+b,0);const rows=clampedD.map((d,i)=>{let e=0,x=0;if(d<0)x=yen*d;else if(d>0&&R>0){e=-S*d/R;x=yen*e}return{player:names[i],score:scores[i],rawD:rawD[i],d,e,x}});renderRoundInfo(importedRoundInfo, names);const tbody=$("resultBody");tbody.innerHTML="";rows.forEach(r=>{const tr=document.createElement("tr"),cls=r.x>0?"positive":r.x<0?"negative":"muted";tr.innerHTML=`<td>${escapeHtml(r.player)}</td><td>${formatNumber(r.score,6)}</td><td class="${cls}">${formatYen(r.x)}</td>`;tbody.appendChild(tr)});renderSettlements(rows);$("result").classList.remove("hidden")}
+function renderRoundInfo(info,names){const box=$("roundInfo");if(!info){box.innerHTML=`<b>プレイヤー</b><br>${names.map(escapeHtml).join(" / ")}`;return}const parts=[];if(info.courseName)parts.push(`<b>コース</b> ${escapeHtml(info.courseName)}`);if(info.playDate)parts.push(`<b>プレー日</b> ${escapeHtml(formatDate(info.playDate))}`);if(info.frontCourseName||info.backCourseName)parts.push(`<b>コース区分</b> ${escapeHtml([info.frontCourseName,info.backCourseName].filter(Boolean).join(" / "))}`);parts.push(`<b>プレイヤー</b> ${names.map(escapeHtml).join(" / ")}`);box.innerHTML=parts.join("<br>")}
+function formatDate(s){const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${Number(m[1])}/${Number(m[2])}/${Number(m[3])}`:s}
+function renderSettlements(rows){const tbody=$("settlementBody");tbody.innerHTML="";let payers=rows.filter(r=>r.x< -1e-9).map(r=>({name:r.player,amount:-r.x}));let receivers=rows.filter(r=>r.x>1e-9).map(r=>({name:r.player,amount:r.x}));let i=0,j=0;while(i<payers.length&&j<receivers.length){const amount=Math.min(payers[i].amount,receivers[j].amount);const tr=document.createElement("tr");tr.innerHTML=`<td>${escapeHtml(payers[i].name)}</td><td>${escapeHtml(receivers[j].name)}</td><td class="positive">${formatYen(amount)}</td>`;tbody.appendChild(tr);payers[i].amount-=amount;receivers[j].amount-=amount;if(payers[i].amount<1e-7)i++;if(receivers[j].amount<1e-7)j++;}if(!tbody.children.length){const tr=document.createElement("tr");tr.innerHTML=`<td colspan="3" class="muted">精算はありません</td>`;tbody.appendChild(tr)}}
+function formatYen(v){return (Math.abs(v)<1e-10?0:v).toLocaleString("ja-JP",{style:"currency",currency:"JPY",maximumFractionDigits:Number.isInteger(v)?0:2});}
+function enterSample(){importedPlayers=[{name:"プレイヤー1",score:10},{name:"プレイヤー2",score:8},{name:"プレイヤー3",score:5}];$("playerCount").value=3;$("yenPerPoint").value=50;$("minPrize").value=-250;updateClamp();makeScoreInputs();calculate()}
+function resetAll(){importedPlayers=null;importedRoundInfo=null;$("playerCount").value=3;$("yenPerPoint").value=50;$("minPrize").value=-250;updateClamp();$("scoreInputs").innerHTML="";$("step2").classList.add("hidden");$("result").classList.add("hidden");clearErrors()}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
+function parseCSV(text){const rows=[];let row=[],cell="",q=false;for(let i=0;i<text.length;i++){const ch=text[i],nx=text[i+1];if(q){if(ch==='"'&&nx==='"'){cell+='"';i++}else if(ch==='"'){q=false}else cell+=ch}else{if(ch==='"')q=true;else if(ch===','){row.push(cell);cell=""}else if(ch==='\n'){row.push(cell);rows.push(row);row=[];cell=""}else if(ch!=='\r')cell+=ch}}row.push(cell);rows.push(row);return rows.filter(r=>r.some(c=>String(c).trim()!==""));}
+function normalize(s){return String(s||"").trim().toLowerCase();}
+function pickScoreKey(keys){const hints=$("olympicColumn").value.split(',').map(s=>normalize(s)).filter(Boolean);return keys.find(k=>hints.some(h=>normalize(k).includes(h)))||keys.find(k=>/olympic|オリンピック|五輪/i.test(k));}
+function pickNameKey(keys){return keys.find(k=>/name|名前|氏名|player|プレイヤー|参加者/i.test(k));}
+function rowsToPlayers(rows){if(rows.length<2)return[];const header=rows[0].map(h=>String(h).trim());const scoreKey=pickScoreKey(header),nameKey=pickNameKey(header);if(!scoreKey)return[];const si=header.indexOf(scoreKey),ni=nameKey?header.indexOf(nameKey):-1;return rows.slice(1).map((r,i)=>({name:ni>=0&&r[ni]?String(r[ni]).trim():`プレイヤー${i+1}`,score:Number(String(r[si]).replace(/,/g,''))})).filter(p=>Number.isFinite(p.score));}
+function jsonToPlayers(obj){
+  // ゴルフスコア入力アプリ formatVersion=2 形式に正式対応
+  // 例: { players:3, playerNames:[...], data:[{ players:[{olympic:2}, ...] }, ...] }
+  if(obj && Array.isArray(obj.playerNames) && Array.isArray(obj.data)){
+    const n = Number.isInteger(obj.players) ? obj.players : obj.playerNames.length;
+    const totals = Array.from({length:n},()=>0);
+    obj.data.forEach(hole=>{
+      const holePlayers = Array.isArray(hole.players) ? hole.players : [];
+      for(let i=0;i<n;i++){
+        const v = Number(holePlayers[i]?.olympic ?? 0);
+        if(Number.isFinite(v)) totals[i] += v;
+      }
+    });
+    return totals.map((score,i)=>({
+      name: obj.playerNames[i] || `プレイヤー${i+1}`,
+      score
+    })).filter(p=>Number.isFinite(p.score));
+  }
+
+  // 汎用JSON形式にも従来どおり対応
+  let arr=Array.isArray(obj)?obj:(obj.players||obj.members||obj.results||obj.data||[]);
+  if(!Array.isArray(arr))return[];
+  return arr.map((p,i)=>{
+    const keys=Object.keys(p||{});
+    const sk=pickScoreKey(keys);
+    const nk=pickNameKey(keys);
+    return{name:nk?p[nk]:`プレイヤー${i+1}`,score:sk?Number(p[sk]):NaN}
+  }).filter(p=>Number.isFinite(p.score));
+}
+async function loadFile(){clearErrors();const f=$("scoreFile").files[0];if(!f){$("importError").textContent="読み込むファイルを選択してください。";return}const text=await f.text();let players=[];importedRoundInfo=null;try{const obj=JSON.parse(text);players=jsonToPlayers(obj);if(obj&&typeof obj==="object"){importedRoundInfo={courseName:obj.courseName,playDate:obj.playDate,frontCourseName:obj.frontCourseName,backCourseName:obj.backCourseName,savedAt:obj.savedAt}}}catch(e){players=rowsToPlayers(parseCSV(text));}if(players.length<2){$("importError").textContent="プレイヤー名とオリンピック得点を読み取れませんでした。CSVなら列名に「名前」と「オリンピック」を含めてください。";return}importedPlayers=players;$("playerCount").value=players.length;makeScoreInputs();calculate();$("importOk").textContent=`${players.length}人分を読み込み、自動計算しました。必要なら単価・下限賞金額・得点を修正して再計算してください。`;}
+$("yenPerPoint").addEventListener("input",updateClamp);$("minPrize").addEventListener("input",updateClamp);$("makeInputs").addEventListener("click",makeScoreInputs);$("calculate").addEventListener("click",calculate);$("sample").addEventListener("click",enterSample);$("reset").addEventListener("click",resetAll);$("loadFile").addEventListener("click",loadFile);updateClamp();
+</script>
+</body>
+</html>
