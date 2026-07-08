@@ -8,6 +8,14 @@
     :root{--bg:#f6f7f9;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#d1d5db;--accent:#2563eb;--accent-dark:#1d4ed8;--danger:#b91c1c;--positive:#065f46;--negative:#991b1b;--soft:#eef2ff}
     *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6} main{width:min(1040px,calc(100% - 28px));margin:28px auto 48px} h1{font-size:1.6rem;margin:0 0 8px} h2{font-size:1.15rem;margin:0 0 14px}.lead{color:var(--muted);margin:0 0 20px}.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin:16px 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end} label{display:block;font-weight:650;margin-bottom:6px} input[type="number"],input[type="text"],input[type="file"],select{width:100%;font-size:1rem;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff} input[type="file"]{padding:8px 10px} button{appearance:none;border:none;border-radius:10px;background:var(--accent);color:white;font-weight:700;font-size:1rem;padding:11px 16px;cursor:pointer} button:hover{background:var(--accent-dark)} button.secondary{background:#4b5563} button.secondary:hover{background:#374151}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.error{color:var(--danger);font-weight:650;margin-top:10px}.ok{color:var(--positive);font-weight:650;margin-top:10px}.hidden{display:none} table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:12px;margin-top:8px} th,td{border:1px solid var(--border);padding:9px 10px;text-align:right;white-space:nowrap} th:first-child,td:first-child{text-align:left} th{background:var(--soft)}.positive{color:var(--positive);font-weight:700}.negative{color:var(--negative);font-weight:700}.muted{color:var(--muted)}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}.pill{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fafafa}.pill b{display:block;font-size:.9rem;color:var(--muted)}.pill span{font-size:1.12rem;font-weight:800}.note{font-size:.92rem;color:var(--muted);margin-top:10px}.mini{font-size:.9rem;color:var(--muted);margin:.25rem 0 0}.section-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}.badge{font-size:.85rem;background:#e5e7eb;color:#374151;border-radius:999px;padding:2px 9px}@media(max-width:640px){main{width:min(100% - 18px,1040px);margin-top:16px}.card{padding:14px}table{font-size:.9rem}th,td{padding:7px 6px}}
   </style>
+
+  <meta name="theme-color" content="#0f7a3a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="オリンピック賞金" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 </head>
 <body>
 <main>
@@ -110,6 +118,16 @@ function jsonToPlayers(obj){
 }
 async function loadFile(){clearErrors();const f=$("scoreFile").files[0];if(!f){$("importError").textContent="読み込むファイルを選択してください。";return}const text=await f.text();let players=[];importedRoundInfo=null;try{const obj=JSON.parse(text);players=jsonToPlayers(obj);if(obj&&typeof obj==="object"){importedRoundInfo={courseName:obj.courseName,playDate:obj.playDate,frontCourseName:obj.frontCourseName,backCourseName:obj.backCourseName,savedAt:obj.savedAt}}}catch(e){players=rowsToPlayers(parseCSV(text));}if(players.length<2){$("importError").textContent="プレイヤー名とオリンピック得点を読み取れませんでした。CSVなら列名に「名前」と「オリンピック」を含めてください。";return}importedPlayers=players;$("playerCount").value=players.length;makeScoreInputs();calculate();$("importOk").textContent=`${players.length}人分を読み込み、自動計算しました。必要なら単価・下限賞金額・得点を修正して再計算してください。`;}
 $("yenPerPoint").addEventListener("input",updateClamp);$("minPrize").addEventListener("input",updateClamp);$("makeInputs").addEventListener("click",makeScoreInputs);$("calculate").addEventListener("click",calculate);$("sample").addEventListener("click",enterSample);$("reset").addEventListener("click",resetAll);$("loadFile").addEventListener("click",loadFile);updateClamp();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(err => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
 </script>
 </body>
 </html>
